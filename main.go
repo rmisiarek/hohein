@@ -15,7 +15,7 @@ func main() {
 		value:  "0177.0.0.01",
 	}
 
-	resp, err := client.request(p, false)
+	resp, err := client.request(p, true)
 	if err != nil {
 		log.Fatalln(err)
 	}

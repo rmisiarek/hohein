@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -73,9 +72,9 @@ func (h *HttpClient) request(payload Payload, debug bool) (*HohinResult, error) 
 	}
 	defer response.Body.Close()
 
-	nh, nv := normalizeHeader(response.Header, debug)
-	reflectedKey, _ := isHeaderKeyReflected(nh, payload.key, debug)
-	reflectedValue, _ := isHeaderValueReflected(nv, payload.value, debug)
+	nh, nv := normalizeHeader(response.Header)
+	reflectedKey, _ := isHeaderKeyReflected(nh, payload.key)
+	reflectedValue, _ := isHeaderValueReflected(nv, payload.value)
 	reflectedValueBody := isValueReflectedInBody(response.Body, payload.value)
 	location := getLocation(response)
 
@@ -139,16 +138,13 @@ func isValueReflectedInBody(response io.ReadCloser, testValue string) string {
 	return ""
 }
 
-func normalizeHeader(response http.Header, debug bool) ([]string, []string) {
+func normalizeHeader(response http.Header) ([]string, []string) {
 	headers := []string{}
 	values := []string{}
 
 	for k, vals := range response {
 		headers = append(headers, strings.ToLower(k))
 		for _, v := range vals {
-			if debug {
-				fmt.Println(strings.ToLower(k), ":", strings.ToLower(v))
-			}
 			values = append(values, strings.ToLower(v))
 		}
 	}
@@ -156,26 +152,20 @@ func normalizeHeader(response http.Header, debug bool) ([]string, []string) {
 	return headers, values
 }
 
-func isHeaderKeyReflected(headers []string, testHeaderKey string, debug bool) (string, bool) {
+func isHeaderKeyReflected(headers []string, testHeaderKey string) (string, bool) {
 	testHeaderKey = strings.ToLower(testHeaderKey)
 	for _, header := range headers {
 		if header == testHeaderKey {
-			if debug {
-				fmt.Printf("found key reflected: %s\n", header)
-			}
 			return header, true
 		}
 	}
 	return "", false
 }
 
-func isHeaderValueReflected(values []string, testHeaderValue string, debug bool) (string, bool) {
+func isHeaderValueReflected(values []string, testHeaderValue string) (string, bool) {
 	testHeaderValue = strings.ToLower(testHeaderValue)
 	for _, value := range values {
 		if value == testHeaderValue {
-			if debug {
-				fmt.Printf("found value reflected: %s\n", value)
-			}
 			return value, true
 		}
 	}
@@ -183,6 +173,15 @@ func isHeaderValueReflected(values []string, testHeaderValue string, debug bool)
 }
 
 func inIntSlice(s []int, v int) bool {
+	for _, a := range s {
+		if a == v {
+			return true
+		}
+	}
+	return false
+}
+
+func inStrSlice(s []string, v string) bool {
 	for _, a := range s {
 		if a == v {
 			return true
