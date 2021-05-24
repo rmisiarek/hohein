@@ -8,9 +8,14 @@ import (
 func main() {
 	client := getClient(15)
 
-	// client.referenceRequest("https://www.hackerone.com", "GET")
+	p := Payload{
+		url:    "https://www.golang.org",
+		method: "GET",
+		key:    "x-forwarded-for",
+		value:  "0177.0.0.01",
+	}
 
-	resp, err := client.request("https://www.golang.org", "GET", "x-forwarded-for", "0177.0.0.01")
+	resp, err := client.request(p, false)
 	if err != nil {
 		log.Fatalln(err)
 	}

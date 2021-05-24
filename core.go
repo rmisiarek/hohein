@@ -1,20 +1,19 @@
 package main
 
 type HohinResult struct {
-	statusCode     int
-	url            string
-	headerKey      string
-	headerValue    string
-	keyReflected   []string
-	valueReflected []string
-	location       string
-	redirect       bool
-	confirmed      bool
+	payload            Payload
+	responseStatusCode int
+	responseURL        string
+	reflectedKey       string
+	reflectedValue     string
+	reflectedValueBody string
+	location           string
+	confirmed          bool
 }
 
-type HohinPayload struct {
-	url         string
-	method      string
-	headerKey   string
-	headerValue string
+type Payload struct {
+	url    string
+	method string
+	key    string
+	value  string
 }

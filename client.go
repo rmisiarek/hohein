@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"time"
@@ -11,17 +13,8 @@ type HttpClient struct {
 	client *http.Client
 }
 
-const successCodes = []int{
+var successCodes = []int{
 	200, 201, 202, 203, 204, 205, 206, 207, 208, 226,
-}
-
-func inIntSlice(s []int, v int) bool {
-	for _, a := range s {
-		if a == v {
-			return true
-		}
-	}
-	return false
 }
 
 func getClient(timeout int) *HttpClient {
@@ -47,14 +40,32 @@ func getClient(timeout int) *HttpClient {
 	return &HttpClient{client: client}
 }
 
-func (h *HttpClient) confirmVulnerabilityRequest(potentialVuln *HohinResult) (interface{}, error) {
-	request, err := http.NewRequest("GET", potentialVuln.url, nil)
+func (h *HttpClient) confirmVulnerability(payload Payload) (bool, error) {
+	request, err := baseRequest(payload)
+	if err != nil {
+		return false, err
+	}
+
+	response, err := h.client.Do(request)
+	if err != nil {
+		return false, err
+	}
+	defer response.Body.Close()
+
+	if !inIntSlice(successCodes, response.StatusCode) {
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func (h *HttpClient) request(payload Payload, debug bool) (*HohinResult, error) {
+	request, err := baseRequest(payload)
 	if err != nil {
 		return nil, err
 	}
 
-	request.Header.Add("Connection", "close")
-	request.Close = true
+	request.Header.Set(payload.key, payload.value)
 
 	response, err := h.client.Do(request)
 	if err != nil {
@@ -62,55 +73,70 @@ func (h *HttpClient) confirmVulnerabilityRequest(potentialVuln *HohinResult) (in
 	}
 	defer response.Body.Close()
 
-	if !inIntSlice(successCodes, response.StatusCode) {
-		potentialVuln.confirmed = true
+	nh, nv := normalizeHeader(response.Header, debug)
+	reflectedKey, _ := isHeaderKeyReflected(nh, payload.key, debug)
+	reflectedValue, _ := isHeaderValueReflected(nv, payload.value, debug)
+	reflectedValueBody := isValueReflectedInBody(response.Body, payload.value)
+	location := getLocation(response)
+
+	var confirmed bool
+	if inIntSlice(successCodes, response.StatusCode) {
+		confirmed, err = h.confirmVulnerability(payload)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	return nil, nil
-}
-
-func (h *HttpClient) request(url, method, headerKey, headerValue string) (*HohinResult, error) {
-	req, err := http.NewRequest(method, url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	// referenceResponse, err := h.client.Get(url)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// defer referenceResponse.Body.Close()
-	// fmt.Printf("referenceResponse %d\n", referenceResponse.ContentLength)
-
-	// req.Header.Add(headerKey, headerValue)
-	// req.Header.Add("Connection", "close")
-	// req.Close = true
-
-	response, err := h.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer response.Body.Close()
-
-	// fmt.Printf("%#v\n", response.Header)
-
-	// fmt.Printf("resp %d\n", response.ContentLength)
-
-	// ref, val, ok := reflected(response.Header, "via", "google", false)
-	// fmt.Printf("%s - %s - %v \n", ref, val, ok)
-
-	nh, nv := normalizeHeader(response.Header, true)
-	isHeaderKeyReflected(nh, "via", true)
-	isHeaderValueReflected(nv, "1.1 google", true)
 
 	result := &HohinResult{
-		statusCode:  response.StatusCode,
-		url:         response.Request.URL.String(),
-		headerKey:   headerKey,
-		headerValue: headerValue,
+		payload:            payload,
+		responseStatusCode: response.StatusCode,
+		responseURL:        response.Request.URL.String(),
+		location:           location,
+		reflectedKey:       reflectedKey,
+		reflectedValue:     reflectedValue,
+		reflectedValueBody: reflectedValueBody,
+		confirmed:          confirmed,
 	}
 
 	return result, nil
+}
+
+func baseRequest(payload Payload) (*http.Request, error) {
+	req, err := http.NewRequest(payload.method, payload.url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Set("Connection", "close")
+	req.Close = true
+
+	return req, nil
+}
+
+func getLocation(response *http.Response) string {
+	location := ""
+	_location, err := response.Location()
+	if err != nil {
+		location = ""
+	} else {
+		location = _location.String()
+	}
+
+	return location
+}
+
+func isValueReflectedInBody(response io.ReadCloser, testValue string) string {
+	testValue = strings.ToLower(testValue)
+	body, err := ioutil.ReadAll(response)
+	if err != nil {
+		return ""
+	}
+
+	if strings.Contains(strings.ToLower(string(body)), testValue) {
+		return testValue
+	}
+
+	return ""
 }
 
 func normalizeHeader(response http.Header, debug bool) ([]string, []string) {
@@ -154,4 +180,13 @@ func isHeaderValueReflected(values []string, testHeaderValue string, debug bool)
 		}
 	}
 	return "", false
+}
+
+func inIntSlice(s []int, v int) bool {
+	for _, a := range s {
+		if a == v {
+			return true
+		}
+	}
+	return false
 }
