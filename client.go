@@ -124,7 +124,7 @@ func getLocation(response *http.Response) string {
 	return location
 }
 
-func isValueReflectedInBody(response io.ReadCloser, testValue string) string {
+func isValueReflectedInBody(response io.Reader, testValue string) string {
 	testValue = strings.ToLower(testValue)
 	body, err := ioutil.ReadAll(response)
 	if err != nil {
