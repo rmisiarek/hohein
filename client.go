@@ -40,6 +40,24 @@ func getClient(timeout int) *HttpClient {
 	return &HttpClient{client: client}
 }
 
+func (h *HttpClient) referenceStatusCode(method, host string) int {
+	request, err := http.NewRequest(method, host, nil)
+	if err != nil {
+		return 0
+	}
+
+	request.Header.Set("Connection", "close")
+	request.Close = true
+
+	response, err := h.client.Do(request)
+	if err != nil {
+		return 0
+	}
+	defer response.Body.Close()
+
+	return response.StatusCode
+}
+
 func (h *HttpClient) confirmVulnerability(payload Payload) (bool, error) {
 	request, err := baseRequest(payload)
 	if err != nil {
@@ -65,15 +83,17 @@ func (h *HttpClient) request(payloads Payload) (*HohinResult, error) {
 		return nil, err
 	}
 
-	var b strings.Builder
-	for header, value := range payloads.payload {
-		fmt.Fprintf(&b, "%s:%s, ", header, value)
+	// var b strings.Builder
+	var header, value string
+	for header, value = range payloads.payload {
+		// fmt.Fprintf(&b, "%s:%s, ", header, value)
+		// fmt.Printf("  >> %s = %s \n", header, value)
 		request.Header.Set(header, value)
 	}
-	fmt.Printf("  >> Headers payload: %s \n", b.String()[:b.Len()-2])
-
+	// fmt.Printf("  >> Headers payload: %s \n", b.String()[:b.Len()-2])
 	response, err := h.client.Do(request)
 	if err != nil {
+		fmt.Println(Red(fmt.Sprintf("    ==> %s", err.Error())))
 		return nil, err
 	}
 	defer response.Body.Close()
@@ -86,16 +106,20 @@ func (h *HttpClient) request(payloads Payload) (*HohinResult, error) {
 
 	var confirmed bool
 	if inIntSlice(successCodes, response.StatusCode) {
-		fmt.Println("    >> Found something, confirming ...")
+		fmt.Println(Yellow(fmt.Sprintf("\t==> status code: %d | payload: %s | confirming ...", response.StatusCode, value)))
+
 		confirmed, err = h.confirmVulnerability(payloads)
 		if err != nil {
 			return nil, err
 		}
+
 		if confirmed {
-			fmt.Println("    >> CONFIRMED !!")
+			fmt.Println(Green("\t\t==> confirmation: OK!"))
 		} else {
-			fmt.Println("    >> NOT CONFIRMED")
+			fmt.Println(Red("\t\t==> confirmation: NOK"))
 		}
+	} else {
+		fmt.Println(Blue(fmt.Sprintf("\t==> status code: %d | payload: %s", response.StatusCode, value)))
 	}
 
 	result := &HohinResult{

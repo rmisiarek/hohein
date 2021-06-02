@@ -18,9 +18,10 @@ type HohinResult struct {
 }
 
 type Payload struct {
-	host    string
-	method  string
-	payload map[string]string
+	host      string
+	method    string
+	payload   map[string]string
+	reference int
 }
 
 type HohinOptions struct {
@@ -69,12 +70,15 @@ func (h *Hohin) Start() {
 	scanner := bufio.NewScanner(h.sourceHosts)
 	for scanner.Scan() {
 		host := scanner.Text()
-		fmt.Printf(">> %s\n", host)
+		reference := h.client.referenceStatusCode("GET", host)
+		fmt.Println(host)
+		fmt.Println(Purple(fmt.Sprintf("\t==> reference status code: %d", reference)))
 		for _, payload := range payloads {
 			h.client.request(Payload{
-				method:  "GET",
-				host:    host,
-				payload: payload,
+				method:    "GET",
+				host:      host,
+				payload:   payload,
+				reference: reference,
 			})
 		}
 	}
