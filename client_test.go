@@ -83,11 +83,11 @@ func TestGetLocation(t *testing.T) {
 
 func TestBaseRequest(t *testing.T) {
 	payloadOK := Payload{
-		url:    "example.com",
+		host:   "example.com",
 		method: "GET",
 	}
 	payloadNOK := Payload{
-		url:    "example.com",
+		host:   "example.com",
 		method: "()", // to throw error, as validMethod() == false
 	}
 

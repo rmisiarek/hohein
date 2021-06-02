@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -58,13 +59,18 @@ func (h *HttpClient) confirmVulnerability(payload Payload) (bool, error) {
 	return false, nil
 }
 
-func (h *HttpClient) request(payload Payload, debug bool) (*HohinResult, error) {
-	request, err := baseRequest(payload)
+func (h *HttpClient) request(payloads Payload) (*HohinResult, error) {
+	request, err := baseRequest(payloads)
 	if err != nil {
 		return nil, err
 	}
 
-	request.Header.Set(payload.key, payload.value)
+	var b strings.Builder
+	for header, value := range payloads.payload {
+		fmt.Fprintf(&b, "%s:%s, ", header, value)
+		request.Header.Set(header, value)
+	}
+	fmt.Printf("  >> Headers payload: %s \n", b.String()[:b.Len()-2])
 
 	response, err := h.client.Do(request)
 	if err != nil {
@@ -72,36 +78,43 @@ func (h *HttpClient) request(payload Payload, debug bool) (*HohinResult, error) 
 	}
 	defer response.Body.Close()
 
-	nh, nv := normalizeHeader(response.Header)
-	reflectedKey, _ := isHeaderKeyReflected(nh, payload.key)
-	reflectedValue, _ := isHeaderValueReflected(nv, payload.value)
-	reflectedValueBody := isValueReflectedInBody(response.Body, payload.value)
+	// nh, nv := normalizeHeader(response.Header)
+	// reflectedKey, _ := isHeaderKeyReflected(nh, payloads)
+	// reflectedValue, _ := isHeaderValueReflected(nv, payloads)
+	// reflectedValueBody := isValueReflectedInBody(response.Body, payloads)
 	location := getLocation(response)
 
 	var confirmed bool
 	if inIntSlice(successCodes, response.StatusCode) {
-		confirmed, err = h.confirmVulnerability(payload)
+		fmt.Println("    >> Found something, confirming ...")
+		confirmed, err = h.confirmVulnerability(payloads)
 		if err != nil {
 			return nil, err
+		}
+		if confirmed {
+			fmt.Println("    >> CONFIRMED !!")
+		} else {
+			fmt.Println("    >> NOT CONFIRMED")
 		}
 	}
 
 	result := &HohinResult{
-		payload:            payload,
+		payloads:           payloads,
 		responseStatusCode: response.StatusCode,
 		responseURL:        response.Request.URL.String(),
 		location:           location,
-		reflectedKey:       reflectedKey,
-		reflectedValue:     reflectedValue,
-		reflectedValueBody: reflectedValueBody,
-		confirmed:          confirmed,
+		// reflectedKey:       reflectedKey,
+		// reflectedValue:     reflectedValue,
+		// reflectedValueBody: reflectedValueBody,
+		confirmed: confirmed,
 	}
 
+	// fmt.Println(result)
 	return result, nil
 }
 
 func baseRequest(payload Payload) (*http.Request, error) {
-	req, err := http.NewRequest(payload.method, payload.url, nil)
+	req, err := http.NewRequest(payload.method, payload.host, nil)
 	if err != nil {
 		return nil, err
 	}

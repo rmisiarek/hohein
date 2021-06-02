@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
 	"io"
 )
 
 type HohinResult struct {
-	payload            Payload
+	payloads           Payload
 	responseStatusCode int
 	responseURL        string
 	reflectedKey       string
@@ -16,10 +18,9 @@ type HohinResult struct {
 }
 
 type Payload struct {
-	url    string
-	method string
-	key    string
-	value  string
+	host    string
+	method  string
+	payload map[string]string
 }
 
 type HohinOptions struct {
@@ -64,5 +65,33 @@ type Hohin struct {
 }
 
 func (h *Hohin) Start() {
+	payloads := h.buildPaylods()
+	scanner := bufio.NewScanner(h.sourceHosts)
+	for scanner.Scan() {
+		host := scanner.Text()
+		fmt.Printf(">> %s\n", host)
+		for _, payload := range payloads {
+			h.client.request(Payload{
+				method:  "GET",
+				host:    host,
+				payload: payload,
+			})
+		}
+	}
+}
 
+type payloads []map[string]string
+
+func (h *Hohin) buildPaylods() payloads {
+	results := make(payloads, len(h.sourceValues))
+
+	for i, value := range h.sourceValues {
+		m := make(map[string]string)
+		for _, header := range h.sourceHeaders {
+			m[header] = value
+		}
+		results[i] = m
+	}
+
+	return results
 }
