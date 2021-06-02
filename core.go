@@ -1,21 +1,8 @@
 package main
 
 import (
-	"fmt"
 	"io"
 )
-
-type Hohin struct {
-	source  io.ReadCloser
-	client  *HttpClient
-	options *HohinOptions
-}
-
-type HohinOptions struct {
-	source  string
-	output  string
-	timeout int
-}
 
 type HohinResult struct {
 	payload            Payload
@@ -35,19 +22,47 @@ type Payload struct {
 	value  string
 }
 
+type HohinOptions struct {
+	pathHosts   string
+	pathHeaders string
+	pathValues  string
+	output      string
+	timeout     int
+}
+
 func NewHohin(o *HohinOptions) (*Hohin, error) {
-	if o.source != "" && !fileExists(o.source) {
-		return nil, fmt.Errorf("%s does not exist", o.source)
+	sourceHosts, err := validateSource(o.pathHosts)
+	if err != nil {
+		return nil, err
 	}
 
-	source, err := openStdinOrFile(o.source)
+	sourceHeaders, err := readSource(o.pathHeaders)
 	if err != nil {
-		return nil, fmt.Errorf("error while opening %s", o.source)
+		return nil, err
+	}
+
+	sourceValues, err := readSource(o.pathValues)
+	if err != nil {
+		return nil, err
 	}
 
 	return &Hohin{
-		source:  source,
-		client:  getClient(o.timeout),
-		options: o,
+		sourceHosts:   sourceHosts,
+		sourceHeaders: sourceHeaders,
+		sourceValues:  sourceValues,
+		client:        getClient(o.timeout),
+		options:       o,
 	}, nil
+}
+
+type Hohin struct {
+	sourceHeaders []string
+	sourceValues  []string
+	sourceHosts   io.ReadCloser
+	client        *HttpClient
+	options       *HohinOptions
+}
+
+func (h *Hohin) Start() {
+
 }
