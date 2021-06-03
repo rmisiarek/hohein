@@ -7,14 +7,14 @@ import (
 )
 
 type HohinResult struct {
-	payloads           Payload
-	responseStatusCode int
-	responseURL        string
-	reflectedKey       string
-	reflectedValue     string
-	reflectedValueBody string
-	location           string
-	confirmed          bool
+	payloads              Payload
+	statusCode            int
+	host                  string
+	location              string
+	reflectedKeys         []string
+	reflectedValues       []string
+	reflectedValuesInBody []string
+	confirmed             bool
 }
 
 type Payload struct {
