@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 )
 
@@ -71,8 +70,8 @@ func (h *Hohin) Start() {
 	for scanner.Scan() {
 		host := scanner.Text()
 		reference := h.client.referenceStatusCode("GET", host)
-		fmt.Println(host)
-		fmt.Println(Purple(fmt.Sprintf("\t==> reference status code: %d", reference)))
+		whiteBold.Printf("%s\n", host)
+		purple.Printf("\t==> reference status code: %d\n", reference)
 		for _, payload := range payloads {
 			h.client.request(Payload{
 				method:    "GET",

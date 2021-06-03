@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"io"
 	"io/ioutil"
 	"net/http"
@@ -90,7 +89,7 @@ func (h *HttpClient) request(payloads Payload) (*HohinResult, error) {
 
 	response, err := h.client.Do(request)
 	if err != nil {
-		fmt.Println(Red(fmt.Sprintf("\t==> %s", err.Error())))
+		red.Printf("\t==> %s\n", err.Error())
 		return nil, err
 	}
 	defer response.Body.Close()
@@ -98,25 +97,25 @@ func (h *HttpClient) request(payloads Payload) (*HohinResult, error) {
 	nh, nv := normalizeHeader(response.Header)
 	reflectedKeys, found := headerKeysReflected(nh, payloads.payload)
 	if found {
-		fmt.Println("\t\t>> found reflected headers", reflectedKeys)
+		greenBold.Printf("\t\t>> found reflected headers\n", reflectedKeys)
 		for _, v := range reflectedKeys {
-			fmt.Println(Green(fmt.Sprintf("\t\t>> %s", v)))
+			greenBold.Printf("\t\t  >> %s\n", v)
 		}
 	}
 
 	reflectedValues, found := headerValuesReflected(nv, payloads.payload)
 	if found {
-		fmt.Println("\t\t>> found reflected header values")
+		greenBold.Printf("\t\t>> found reflected header values\n")
 		for _, v := range reflectedValues {
-			fmt.Println(Green(fmt.Sprintf("\t\t>> %s", v)))
+			greenBold.Printf("\t\t  >> %s\n", v)
 		}
 	}
 
 	reflectedValuesInBody, found := valuesReflectedInBody(response.Body, payloads.payload)
 	if found {
-		fmt.Println("\t\t>> found reflected value in body")
+		greenBold.Printf("\t\t>> found reflected value in body:\n")
 		for _, v := range reflectedValuesInBody {
-			fmt.Println(Green(fmt.Sprintf("\t\t>> %s", v)))
+			greenBold.Printf("\t\t  >> %s\n", v)
 		}
 	}
 
@@ -124,21 +123,21 @@ func (h *HttpClient) request(payloads Payload) (*HohinResult, error) {
 
 	var confirmed bool
 	if inIntSlice(successCodes, response.StatusCode) {
-		fmt.Println(Yellow(fmt.Sprintf("\t==> status code: %d | payload: %s | confirming...", response.StatusCode, value)))
+		yellow.Printf("\t==> status code: %d | payload: %s | confirming...\n", response.StatusCode, value)
 
 		confirmed, err = h.confirmVulnerability(payloads)
 		if err != nil {
-			fmt.Println(Red(fmt.Sprintf("\t\t>> %s", err.Error())))
+			red.Printf("\t\t>> %s\n", err.Error())
 			return nil, err
 		}
 
 		if confirmed {
-			fmt.Println(Green("\t\t>> confirmation: OK!"))
+			greenBold.Printf("\t\t>> confirmation: OK!\n")
 		} else {
-			fmt.Println(Red("\t\t>> confirmation: NOK"))
+			red.Printf("\t\t>> confirmation: NOK\n")
 		}
 	} else {
-		fmt.Println(Blue(fmt.Sprintf("\t==> status code: %d | payload: %s", response.StatusCode, value)))
+		blue.Printf("\t==> status code: %d | payload: %s\n", response.StatusCode, value)
 	}
 
 	result := &HohinResult{
