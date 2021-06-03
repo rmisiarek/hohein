@@ -10,27 +10,55 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestIsHeaderKeyReflected(t *testing.T) {
-	headers := []string{"header-1", "header-2"}
+func Test_headerKeysReflected(t *testing.T) {
+	responseHeaders := []string{"header-1", "header-2"}
+	payloadsOK := map[string]string{
+		"header-1": "value-1",
+		"header-2": "value-2",
+		"header-3": "value-3",
+	}
+	payloadsNOK := map[string]string{
+		"header-4": "value-4",
+		"header-5": "value-5",
+		"header-6": "value-6",
+	}
 
-	header, ok := isHeaderKeyReflected(headers, "header-1")
-	assert.Equal(t, "header-1", header)
+	reflectedHeaders, ok := headerKeysReflected(responseHeaders, payloadsOK)
+	assert.Equal(t, true, inStrSlice(reflectedHeaders, "header-1"))
+	assert.Equal(t, true, inStrSlice(reflectedHeaders, "header-2"))
+	assert.Equal(t, false, inStrSlice(reflectedHeaders, "header-3"))
 	assert.Equal(t, true, ok)
 
-	header, ok = isHeaderKeyReflected(headers, "header-3")
-	assert.Equal(t, "", header)
+	reflectedHeaders, ok = headerKeysReflected(responseHeaders, payloadsNOK)
+	assert.Equal(t, false, inStrSlice(reflectedHeaders, "header-4"))
+	assert.Equal(t, false, inStrSlice(reflectedHeaders, "header-5"))
+	assert.Equal(t, false, inStrSlice(reflectedHeaders, "header-6"))
 	assert.Equal(t, false, ok)
 }
 
-func TestIsHeaderValueReflected(t *testing.T) {
-	values := []string{"value-1", "value-2"}
+func Test_headerValuesReflected(t *testing.T) {
+	responseValues := []string{"value-1", "value-2"}
+	payloadsOK := map[string]string{
+		"header-1": "value-1",
+		"header-2": "value-2",
+		"header-3": "value-3",
+	}
+	payloadsNOK := map[string]string{
+		"header-4": "value-4",
+		"header-5": "value-5",
+		"header-6": "value-6",
+	}
 
-	value, ok := isHeaderValueReflected(values, "value-1")
-	assert.Equal(t, "value-1", value)
+	reflectedValues, ok := headerValuesReflected(responseValues, payloadsOK)
+	assert.Equal(t, true, inStrSlice(reflectedValues, "value-1"))
+	assert.Equal(t, true, inStrSlice(reflectedValues, "value-2"))
+	assert.Equal(t, false, inStrSlice(reflectedValues, "value-3"))
 	assert.Equal(t, true, ok)
 
-	value, ok = isHeaderValueReflected(values, "value-3")
-	assert.Equal(t, "", value)
+	reflectedValues, ok = headerValuesReflected(responseValues, payloadsNOK)
+	assert.Equal(t, false, inStrSlice(reflectedValues, "value-4"))
+	assert.Equal(t, false, inStrSlice(reflectedValues, "value-5"))
+	assert.Equal(t, false, inStrSlice(reflectedValues, "value-6"))
 	assert.Equal(t, false, ok)
 }
 
@@ -47,17 +75,21 @@ func TestNormalizeHeader(t *testing.T) {
 	assert.Equal(t, true, inStrSlice(values, "value-2"))
 }
 
-func TestIsValueReflectedInBody(t *testing.T) {
-	r := ioutil.NopCloser(strings.NewReader("short text just for testing"))
-	value := isValueReflectedInBody(r, "JUST for")
-	assert.Equal(t, "just for", value)
+func Test_valuesReflectedInBody(t *testing.T) {
+	r := ioutil.NopCloser(strings.NewReader("short body text just for testing"))
 
-	value = isValueReflectedInBody(r, "will be not found")
-	assert.Equal(t, "", value)
+	reflectedValues, found := valuesReflectedInBody(r, map[string]string{"header-1": "JUST for", "header-2": "not"})
+	assert.Equal(t, true, inStrSlice(reflectedValues, "JUST for"))
+	assert.Equal(t, false, inStrSlice(reflectedValues, "head"))
+	assert.Equal(t, true, found)
+
+	reflectedValues, found = valuesReflectedInBody(r, map[string]string{"header-1": "will not be found"})
+	assert.Equal(t, false, inStrSlice(reflectedValues, "value to found"))
+	assert.Equal(t, false, found)
 
 	var err errorReader
-	value = isValueReflectedInBody(err, "throw error")
-	assert.Equal(t, "", value)
+	_, found = valuesReflectedInBody(err, map[string]string{"header-1": "error"})
+	assert.Equal(t, false, found)
 }
 
 type errorReader int
