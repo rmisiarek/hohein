@@ -5,21 +5,10 @@ import (
 	"io"
 )
 
-type HohinResult struct {
-	payloads              Payload
-	statusCode            int
-	host                  string
-	location              string
-	reflectedKeys         []string
-	reflectedValues       []string
-	reflectedValuesInBody []string
-	confirmed             bool
-}
-
 type Payload struct {
 	host      string
 	method    string
-	payload   map[string]string
+	headers   map[string]string
 	reference int
 }
 
@@ -31,18 +20,18 @@ type HohinOptions struct {
 	timeout     int
 }
 
-func NewHohin(o *HohinOptions) (*Hohin, error) {
-	sourceHosts, err := validateSource(o.pathHosts)
+func NewHohin(options *HohinOptions) (*Hohin, error) {
+	sourceHosts, err := validateSource(options.pathHosts)
 	if err != nil {
 		return nil, err
 	}
 
-	sourceHeaders, err := readSource(o.pathHeaders)
+	sourceHeaders, err := readSource(options.pathHeaders)
 	if err != nil {
 		return nil, err
 	}
 
-	sourceValues, err := readSource(o.pathValues)
+	sourceValues, err := readSource(options.pathValues)
 	if err != nil {
 		return nil, err
 	}
@@ -51,8 +40,8 @@ func NewHohin(o *HohinOptions) (*Hohin, error) {
 		sourceHosts:   sourceHosts,
 		sourceHeaders: sourceHeaders,
 		sourceValues:  sourceValues,
-		client:        getClient(o.timeout),
-		options:       o,
+		client:        getClient(options.timeout),
+		options:       options,
 	}, nil
 }
 
@@ -70,15 +59,24 @@ func (h *Hohin) Start() {
 	for scanner.Scan() {
 		host := scanner.Text()
 		reference := h.client.referenceStatusCode("GET", host)
+
 		whiteBold.Printf("%s\n", host)
 		purple.Printf("\t==> reference status code: %d\n", reference)
+
+		out := make(chan ResultWrapper)
 		for _, payload := range payloads {
-			h.client.request(Payload{
-				method:    "GET",
-				host:      host,
-				payload:   payload,
-				reference: reference,
-			})
+			go func(payload map[string]string) {
+				out <- h.client.request(Payload{
+					method:    "GET",
+					host:      host,
+					headers:   payload,
+					reference: reference,
+				})
+			}(payload)
+		}
+
+		for i := 0; i < len(payloads); i++ {
+			handleResult(<-out)
 		}
 	}
 }
