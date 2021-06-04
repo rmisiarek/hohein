@@ -9,4 +9,5 @@ var purple = color.New(color.FgMagenta)
 var red = color.New(color.FgRed)
 var greenBold = color.New(color.FgGreen).Add(color.Bold)
 var blue = color.New(color.FgBlue)
-var yellow = color.New(color.FgYellow)
+
+// var yellow = color.New(color.FgYellow)

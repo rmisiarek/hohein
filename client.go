@@ -76,72 +76,41 @@ func (h *HttpClient) confirmVulnerability(payload Payload) (bool, error) {
 	return false, nil
 }
 
-func (h *HttpClient) request(payloads Payload) (*HohinResult, error) {
-	request, err := baseRequest(payloads)
+func (h *HttpClient) request(payload Payload) ResultWrapper {
+	request, err := baseRequest(payload)
 	if err != nil {
-		return nil, err
+		return ResultWrapper{result: Result{}, err: err}
 	}
 
-	var header, value string
-	for header, value = range payloads.payload {
-		request.Header.Set(header, value)
+	var headerKey, headerValue string
+	for headerKey, headerValue = range payload.headers {
+		request.Header.Set(headerKey, headerValue)
 	}
 
 	response, err := h.client.Do(request)
 	if err != nil {
 		red.Printf("\t==> %s\n", err.Error())
-		return nil, err
+		return ResultWrapper{result: Result{}, err: err}
 	}
 	defer response.Body.Close()
 
 	nh, nv := normalizeHeader(response.Header)
-	reflectedKeys, found := headerKeysReflected(nh, payloads.payload)
-	if found {
-		greenBold.Printf("\t\t>> found reflected headers\n", reflectedKeys)
-		for _, v := range reflectedKeys {
-			greenBold.Printf("\t\t  >> %s\n", v)
-		}
-	}
-
-	reflectedValues, found := headerValuesReflected(nv, payloads.payload)
-	if found {
-		greenBold.Printf("\t\t>> found reflected header values\n")
-		for _, v := range reflectedValues {
-			greenBold.Printf("\t\t  >> %s\n", v)
-		}
-	}
-
-	reflectedValuesInBody, found := valuesReflectedInBody(response.Body, payloads.payload)
-	if found {
-		greenBold.Printf("\t\t>> found reflected value in body:\n")
-		for _, v := range reflectedValuesInBody {
-			greenBold.Printf("\t\t  >> %s\n", v)
-		}
-	}
-
+	reflectedKeys, _ := headerKeysReflected(nh, payload.headers)
+	reflectedValues, _ := headerValuesReflected(nv, payload.headers)
+	reflectedValuesInBody, _ := valuesReflectedInBody(response.Body, payload.headers)
 	location := getLocation(response)
 
 	var confirmed bool
 	if inIntSlice(successCodes, response.StatusCode) {
-		yellow.Printf("\t==> status code: %d | payload: %s | confirming...\n", response.StatusCode, value)
-
-		confirmed, err = h.confirmVulnerability(payloads)
+		confirmed, err = h.confirmVulnerability(payload)
 		if err != nil {
-			red.Printf("\t\t>> %s\n", err.Error())
-			return nil, err
+			return ResultWrapper{result: Result{}, err: err}
 		}
-
-		if confirmed {
-			greenBold.Printf("\t\t>> confirmation: OK!\n")
-		} else {
-			red.Printf("\t\t>> confirmation: NOK\n")
-		}
-	} else {
-		blue.Printf("\t==> status code: %d | payload: %s\n", response.StatusCode, value)
 	}
 
-	result := &HohinResult{
-		payloads:              payloads,
+	result := Result{
+		payloads:              payload,
+		headerValue:           headerValue,
 		statusCode:            response.StatusCode,
 		host:                  response.Request.URL.String(),
 		location:              location,
@@ -151,7 +120,7 @@ func (h *HttpClient) request(payloads Payload) (*HohinResult, error) {
 		confirmed:             confirmed,
 	}
 
-	return result, nil
+	return ResultWrapper{result: result, err: nil}
 }
 
 func baseRequest(payload Payload) (*http.Request, error) {
